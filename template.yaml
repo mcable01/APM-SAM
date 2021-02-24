@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM Template for Layers-Demo Application
+Globals:
+  Function:
+    Timeout: 30
+
+Parameters:
+  IAMRoleParameter:
+    Description: The IAM Role to each Lambda Fuction
+    Type: String
+    Default: myLambdaRole
+  AppEnvParameter:
+    Type: String
+    Description: Is it running locally within Docker or is it running remotely within AWS
+    Default: docker
+    AllowedValues:
+      - aws
+      - docker
+
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: LambdaTokenAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: False
+        Authorizers:
+          LambdaTokenAuthorizer:
+            FunctionArn: !GetAtt TokenAuthFunction.Arn
+  TokenAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TokenAuthorizor
+      CodeUri: ./authorizer
+      Handler: handler.authorizer
+      Runtime: nodejs10.x
+  ListProductsFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: ListProducts
+      Description: APM List Products
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${IAMRoleParameter}'
+      CodeUri: list-products/
+      Handler: main.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref DatabaseLayer
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+      Events:
+        ListAPMProductsAPI:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /products
+            Method: get
+  GetProductFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: GetProduct
+      Description: APM Get Product
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${IAMRoleParameter}'
+      CodeUri: get-product/
+      Handler: main.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref DatabaseLayer
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+      Events:
+        GetAPMProductsAPI:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /products/{id}
+            Method: get
+  CreateProductFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: CreateProduct
+      Description: APM Create Product
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${IAMRoleParameter}'
+      CodeUri: create-product/
+      Handler: main.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref DatabaseLayer
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+      Events:
+        CreateAPMProductsAPI:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /products
+            Method: post
+  UpdateProductFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: UpdateProduct
+      Description: APM Update Product
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${IAMRoleParameter}'
+      CodeUri: update-product/
+      Handler: main.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref DatabaseLayer
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+      Events:
+        UpdateAPMProductsAPI:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /products/{id}
+            Method: put
+  DeleteProductFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: DeleteProduct
+      Description: APM Delete Product
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${IAMRoleParameter}'
+      CodeUri: delete-product/
+      Handler: main.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref DatabaseLayer
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+      Events:
+        DeleteAPMProductsAPI:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /products/{id}
+            Method: delete
+  DatabaseLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: DatabaseLayer
+      Description: Database Layer
+      # ContentUri: database_layer/database-layer.zip
+      ContentUri: database_layer/
+      CompatibleRuntimes:
+        - python3.8
+      RetentionPolicy: Delete
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  ListProductsApi:
+    Description: "API Gateway endpoint URL for Prod stage for List Products function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/listproducts/"
+  ListProductsFunction:
+    Description: "ListProducts Lambda Function ARN"
+    Value: !GetAtt ListProductsFunction.Arn
+  GetProductApi:
+    Description: "API Gateway endpoint URL for Prod stage for Get Product function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/getproduct/"
+  GetProductFunction:
+    Description: "GetProduct Lambda Function ARN"
+    Value: !GetAtt GetProductFunction.Arn
+  CreateProductApi:
+    Description: "API Gateway endpoint URL for Prod stage for Create Product function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/createproduct/"
+  CreateProductFunction:
+    Description: "CreateProduct Lambda Function ARN"
+    Value: !GetAtt CreateProductFunction.Arn
+  UpdateProductApi:
+    Description: "API Gateway endpoint URL for Prod stage for Update Product function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/updateproduct/"
+  UpdateProductFunction:
+    Description: "UpdateProduct Lambda Function ARN"
+    Value: !GetAtt UpdateProductFunction.Arn
+  DeleteProductApi:
+    Description: "API Gateway endpoint URL for Prod stage for Delete Product function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/deleteproduct/"
+  DeleteProductFunction:
+    Description: "DeleteProduct Lambda Function ARN"
+    Value: !GetAtt DeleteProductFunction.Arn
+  DatabaseLayerARN:
+    Value: !Ref DatabaseLayer
+    Description: DatabaseLayer layer ARN
+    Export:
+      Name: database-layer-arn

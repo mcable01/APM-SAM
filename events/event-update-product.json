@@ -1,0 +1,4 @@
+{
+  "body": "{\"productName\": \"Screw Driver\",\"productCode\": \"34534649999\",\"tags\": [\"tool\"],\"description\": \"Flathead with rubber handle\",\"starRating\": \"4\"}",
+  "pathParameters":{"id": "10019"}
+}
