@@ -7,6 +7,7 @@ def lambda_handler(event, context):
     data = []
     product = {}
 
+    print("HELLO")
     print("APP_ENV = " + os.environ.get('APP_ENV'))
     if os.environ.get('APP_ENV') == 'docker':
         conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};SERVER=docker.for.win.localhost;DATABASE=APM"
